@@ -98,10 +98,21 @@
             width: 100vw;
             height: 100vh;
             background: black;
+            padding: 20px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .fullscreen.active {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 1000;
+        }
+
+        .fullscreen .clock {
+            background: transparent;
+            box-shadow: none;
         }
 
         .fullscreen .clock-time {
@@ -112,6 +123,22 @@
         .fullscreen .clock-zone {
             font-size: 3vw;
             color: #ccc;
+        }
+
+        .fullscreen .clock-controls {
+            display: none;
+        }
+
+        #fullscreen-close {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            display: none;
+        }
+
+        #fullscreen-close.active {
+            display: block;
         }
     </style>
 </head>
@@ -128,11 +155,15 @@
     </div>
     
     <div class="clock-grid" id="clock-grid"></div>
+    <div id="fullscreen-container" class="fullscreen">
+        <!-- Fullscreen content will be cloned here -->
+    </div>
+    <button id="fullscreen-close">Exit Fullscreen</button>
 
     <script>
         class Clock {
             constructor(timezone = undefined) {
-                this.timezone = timezone; // undefined for local time
+                this.timezone = timezone;
                 this.size = 'medium';
                 this.backgroundColor = '#ffffff';
                 this.element = this.createClockElement();
@@ -159,7 +190,6 @@
                     </div>
                 `;
 
-                // Event Listeners
                 clock.querySelector('.size-select').addEventListener('change', (e) => {
                     this.size = e.target.value;
                     clock.className = `clock ${this.size}`;
@@ -205,6 +235,10 @@
                 this.element.querySelector('.clock-time').textContent = time;
                 this.element.querySelector('.clock-zone').textContent = zoneName;
             }
+
+            clone() {
+                return this.element.cloneNode(true);
+            }
         }
 
         class ClockApp {
@@ -213,7 +247,7 @@
                 this.isFullscreen = false;
                 this.initializeTimezones();
                 this.setupEventListeners();
-                this.addClock(); // Add local clock without timezone parameter
+                this.addClock();
             }
 
             async initializeTimezones() {
@@ -239,6 +273,17 @@
                 document.getElementById('toggle-fullscreen').addEventListener('click', () => {
                     this.toggleFullscreen();
                 });
+
+                document.getElementById('fullscreen-close').addEventListener('click', () => {
+                    this.exitFullscreen();
+                });
+
+                // Listen for escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.isFullscreen) {
+                        this.exitFullscreen();
+                    }
+                });
             }
 
             addClock(timezone) {
@@ -248,17 +293,56 @@
             }
 
             toggleFullscreen() {
-                const grid = document.getElementById('clock-grid');
-                
                 if (!this.isFullscreen) {
-                    grid.classList.add('fullscreen');
-                    document.documentElement.requestFullscreen();
+                    this.enterFullscreen();
                 } else {
-                    grid.classList.remove('fullscreen');
-                    document.exitFullscreen();
+                    this.exitFullscreen();
+                }
+            }
+
+            enterFullscreen() {
+                const container = document.getElementById('fullscreen-container');
+                const closeButton = document.getElementById('fullscreen-close');
+                
+                // Clear previous content
+                container.innerHTML = '';
+                
+                // Clone the first clock for fullscreen display
+                if (this.clocks.length > 0) {
+                    const fullscreenClock = this.clocks[0].clone();
+                    container.appendChild(fullscreenClock);
+                }
+
+                container.classList.add('active');
+                closeButton.classList.add('active');
+                
+                try {
+                    if (document.documentElement.requestFullscreen) {
+                        document.documentElement.requestFullscreen();
+                    }
+                } catch (err) {
+                    console.error('Failed to enter fullscreen:', err);
                 }
                 
-                this.isFullscreen = !this.isFullscreen;
+                this.isFullscreen = true;
+            }
+
+            exitFullscreen() {
+                const container = document.getElementById('fullscreen-container');
+                const closeButton = document.getElementById('fullscreen-close');
+                
+                container.classList.remove('active');
+                closeButton.classList.remove('active');
+                
+                try {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                } catch (err) {
+                    console.error('Failed to exit fullscreen:', err);
+                }
+                
+                this.isFullscreen = false;
             }
         }
 
