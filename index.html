@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Clock App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #0066cc;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0052a3;
+        }
+
+        .clock-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 10px;
+        }
+
+        .clock {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .clock.small { font-size: 1.5rem; }
+        .clock.medium { font-size: 2rem; }
+        .clock.large { font-size: 2.5rem; }
+
+        .clock-time {
+            font-size: 2em;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .clock-zone {
+            text-align: center;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .clock-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        select, input[type="color"] {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .fullscreen .clock-time {
+            font-size: 15vw;
+            color: white;
+        }
+
+        .fullscreen .clock-zone {
+            font-size: 3vw;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>World Clock</h1>
+        <div class="controls">
+            <select id="timezone-select">
+                <option value="">Select Timezone</option>
+            </select>
+            <button id="add-clock">Add Clock</button>
+            <button id="toggle-fullscreen">Full Screen</button>
+        </div>
+    </div>
+    
+    <div class="clock-grid" id="clock-grid"></div>
+
+    <script>
+        class Clock {
+            constructor(timezone = undefined) {
+                this.timezone = timezone; // undefined for local time
+                this.size = 'medium';
+                this.backgroundColor = '#ffffff';
+                this.element = this.createClockElement();
+                this.updateInterval = setInterval(() => this.updateTime(), 1000);
+                this.updateTime();
+            }
+
+            createClockElement() {
+                const clock = document.createElement('div');
+                clock.className = `clock ${this.size}`;
+                clock.style.backgroundColor = this.backgroundColor;
+                
+                clock.innerHTML = `
+                    <div class="clock-zone"></div>
+                    <div class="clock-time"></div>
+                    <div class="clock-controls">
+                        <select class="size-select">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                        <input type="color" class="color-picker" value="#ffffff">
+                        <button class="remove-clock">Remove</button>
+                    </div>
+                `;
+
+                // Event Listeners
+                clock.querySelector('.size-select').addEventListener('change', (e) => {
+                    this.size = e.target.value;
+                    clock.className = `clock ${this.size}`;
+                });
+
+                clock.querySelector('.color-picker').addEventListener('input', (e) => {
+                    this.backgroundColor = e.target.value;
+                    clock.style.backgroundColor = this.backgroundColor;
+                });
+
+                clock.querySelector('.remove-clock').addEventListener('click', () => {
+                    clearInterval(this.updateInterval);
+                    clock.remove();
+                });
+
+                return clock;
+            }
+
+            updateTime() {
+                const options = {
+                    hour12: true,
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit'
+                };
+
+                if (this.timezone) {
+                    options.timeZone = this.timezone;
+                }
+
+                const time = new Date().toLocaleTimeString('en-US', options);
+
+                let zoneName;
+                if (this.timezone) {
+                    zoneName = new Date().toLocaleDateString('en-US', {
+                        timeZone: this.timezone,
+                        timeZoneName: 'long'
+                    }).split(',')[1].trim();
+                } else {
+                    zoneName = Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, ' ');
+                }
+
+                this.element.querySelector('.clock-time').textContent = time;
+                this.element.querySelector('.clock-zone').textContent = zoneName;
+            }
+        }
+
+        class ClockApp {
+            constructor() {
+                this.clocks = [];
+                this.isFullscreen = false;
+                this.initializeTimezones();
+                this.setupEventListeners();
+                this.addClock(); // Add local clock without timezone parameter
+            }
+
+            async initializeTimezones() {
+                const select = document.getElementById('timezone-select');
+                const timezones = Intl.supportedValuesOf('timeZone');
+                
+                timezones.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone;
+                    option.textContent = zone.replace(/_/g, ' ');
+                    select.appendChild(option);
+                });
+            }
+
+            setupEventListeners() {
+                document.getElementById('add-clock').addEventListener('click', () => {
+                    const select = document.getElementById('timezone-select');
+                    if (select.value) {
+                        this.addClock(select.value);
+                    }
+                });
+
+                document.getElementById('toggle-fullscreen').addEventListener('click', () => {
+                    this.toggleFullscreen();
+                });
+            }
+
+            addClock(timezone) {
+                const clock = new Clock(timezone);
+                this.clocks.push(clock);
+                document.getElementById('clock-grid').appendChild(clock.element);
+            }
+
+            toggleFullscreen() {
+                const grid = document.getElementById('clock-grid');
+                
+                if (!this.isFullscreen) {
+                    grid.classList.add('fullscreen');
+                    document.documentElement.requestFullscreen();
+                } else {
+                    grid.classList.remove('fullscreen');
+                    document.exitFullscreen();
+                }
+                
+                this.isFullscreen = !this.isFullscreen;
+            }
+        }
+
+        // Initialize the app
+        const app = new ClockApp();
+    </script>
+</body>
+</html>
