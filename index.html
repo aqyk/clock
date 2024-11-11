@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>World Clock App</title>
     <style>
-        /* Previous styles remain the same until .fullscreen */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -18,6 +17,7 @@
             background: #f0f2f5;
         }
 
+        /* Previous styles remain the same until .fullscreen */
         .header {
             display: flex;
             justify-content: space-between;
@@ -116,6 +116,13 @@
             margin: 10px 0;
         }
 
+        .clock-date {
+            text-align: center;
+            color: #666;
+            margin: 5px 0;
+            font-size: 0.7em;
+        }
+
         .clock-zone {
             text-align: center;
             color: #666;
@@ -162,6 +169,12 @@
         .fullscreen .clock-time {
             font-size: 15vw;
             color: white;
+        }
+
+        .fullscreen .clock-date {
+            font-size: 4vw;
+            color: #ccc;
+            margin: 20px 0;
         }
 
         .fullscreen .clock-zone {
@@ -223,6 +236,7 @@
                 clock.innerHTML = `
                     <div class="clock-zone"></div>
                     <div class="clock-time"></div>
+                    <div class="clock-date"></div>
                     <div class="clock-controls">
                         <select class="size-select">
                             <option value="small">Small</option>
@@ -253,18 +267,27 @@
             }
 
             updateTime() {
-                const options = {
+                const timeOptions = {
                     hour12: true,
                     hour: 'numeric',
                     minute: '2-digit',
                     second: '2-digit'
                 };
 
+                const dateOptions = {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                };
+
                 if (this.timezone) {
-                    options.timeZone = this.timezone;
+                    timeOptions.timeZone = this.timezone;
+                    dateOptions.timeZone = this.timezone;
                 }
 
-                const time = new Date().toLocaleTimeString('en-US', options);
+                const time = new Date().toLocaleTimeString('en-US', timeOptions);
+                const date = new Date().toLocaleDateString('en-US', dateOptions);
 
                 let zoneName;
                 if (this.displayName) {
@@ -279,10 +302,12 @@
                 }
 
                 this.element.querySelector('.clock-time').textContent = time;
+                this.element.querySelector('.clock-date').textContent = date;
                 this.element.querySelector('.clock-zone').textContent = zoneName;
             }
         }
 
+        // Rest of the code remains the same...
         class ClockApp {
             constructor() {
                 this.clocks = [];
@@ -392,7 +417,6 @@
                 container.innerHTML = '';
                 
                 if (this.clocks.length > 0) {
-                    // Create a new clock instance for fullscreen instead of cloning
                     this.fullscreenClock = new Clock(this.clocks[0].timezone, this.clocks[0].displayName);
                     container.appendChild(this.fullscreenClock.element);
                 }
@@ -418,7 +442,6 @@
                 container.classList.remove('active');
                 closeButton.classList.remove('active');
                 
-                // Clean up fullscreen clock
                 if (this.fullscreenClock) {
                     clearInterval(this.fullscreenClock.updateInterval);
                     this.fullscreenClock = null;
